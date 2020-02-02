@@ -50,19 +50,19 @@ columnNames = {"NAME", "AGE"} )})
 - `length` : 문자 길이 제약조건, `String` 타입에서만 사용한다.
 - `precision`, `scale` : `precision`은 소수점을 포함한 전체 자릿수, `scale`은 소수의 자릿수를 나타낸다. 큰 숫자와 정밀한 소수를 다루어야할 때 사용한다.
 
-```java
+````java
 
 
 ### @Enumerated
 
-enum 타입을 매핑할 때 사용한다. 
+enum 타입을 매핑할 때 사용한다.
 
 - `value` : `EnumType.ORDINAL`, `EnumType.STRTNG` 두 가지 방법이 있는데, `ORDINAL`을 사용하면 데이터베이스에 enum의 순서를 저장하게 되고, `STRING`을 사용하게 되면 enum 이름을 사용하게 된다. 반드시 `STRING`을 사용하도록 하자.
 
 ```java
 @Enumerated(EnumType.STRING)
 private RoleType roleType;
-```
+````
 
 ### @Temporal
 
@@ -102,3 +102,107 @@ private String description;
 private Integer temp;
 ```
 
+<br><hr>
+
+## 기본 키 매핑
+
+기본 키 매핑 방법은 `직접 할당` 방법과 `자동 생성` 방법이 있다. `자동 생성` 방법에 대해 더 알아보자.
+
+### Identity 전략
+
+`Identity` 전략은 MySQL의 `AUTO_INCREMENT`와 같이 DB에서 자체적으로 지원해주는 `자동 생성` 방식을 따른다. 이 방식을 사용하면 JPA의 `INSERT` 쿼리에 id 값이 NULL로 셋팅되어있다.
+
+주로 `MySQL`, `PostgreSQL`, `SQL Server`, `DB2`에서 사용한다.
+
+**사용 예시**
+
+```java
+public class Member {
+
+	@Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+	private Long id;
+}
+```
+
+**발생하는 쿼리**
+
+```sql
+insert into Member(id, age, createdDate, description, lastModifiedDate, name, roleType)
+values (null, ?, ?, ?, ?, ?, ?);
+```
+
+<br>
+
+#### 단점
+
+id 값이 null이라는게 조금 이상하다. 앞서 영속성 컨텍스트의 1차캐시는 {`@Id`, `@Entity`, `@Snapshot`} 형태로 이루어져 있다고 했다. 그런데, 쿼리를 전달하기 전에는 id를 모르니 1차 캐시에 데이터를 저장해두고 있을 수가 없다.
+
+따라서 `Identity` 전략을 사용하게 되면, 쓰기 지연 기능을 사용하지 못한다. 영속성 컨텍스트로 관리하기 위해 `em.persist(member)`를 호출하면, 그 즉시 쿼리를 DB에 전송하고 DB로부터 `@id`를 받아와 영속성 컨텍스트에 집어 넣는다. DB 성능에 크게 영향을 미치지는 않지만, `Identity` 전략의 단점이라고 볼 수 있다.
+
+### Sequence 전략
+
+데이터베이스에는 유일한 값을 순서대로 생성하는 `Sequence`라는 오브젝트가 있다. 이 기능을 활용하여 id 식별자의 값을 할당하는 방법이다.
+
+주로 `Oracle`, `PostgreSQL`, `DB2`, `H2` 데이터베이스에서 사용한다.
+
+**사용 예시**
+
+```java
+@Entity
+@SequenceGenerator(
+name = "MEMBER_SEQ_GENERATOR",
+sequenceName = "MEMBER_SEQ", //매핑할 데이터베이스 시퀀스 이름
+initialValue = 1, allocationSize = 1)
+public class Member {
+    @Id
+    @GeneratedValue(strategy = GenerationType.SEQUENCE,
+    generator = "MEMBER_SEQ_GENERATOR")
+    private Long id;
+```
+
+다소 복잡하게 느껴질 수 있는데, `@SequenceGenerator()`를 이용해서 `MEMBER_SEQ_GENERATOR`라는 Sequence Generator를 생성한 후, 그 generator를 이용해서 시퀀스를 생성하는 방법이다.
+
+<br>
+
+#### 단점
+
+이 방법에도 약간 문제가 있다. `MEMBER_SEQ`는 데이터베이스에서 관리하는 객체라는 점이다. 즉, DB에 접근해서 시퀀스 값을 읽어오지 않는 한 id값을 알 수 없다는 점이 `Identity` 전략과 동일하다. 약간의 차이가 있다면, `Identity` 전략은 객체를 `영속` 하려는 즉시 쿼리를 실행하지만, `Sequence` 전략은 쿼리를 실행하지 않고 `MEMBER_SEQ`로부터 식별자 값만을 얻어온다. DB의 트래픽이 많아지므로 약간의 성능저하를 생각해볼 수 있다.
+
+#### 보완
+
+이러한 문제점을 극복하기 위해 `@SequenceGenerator()`에는 `initalValue`와 `allocationSize`라는 속성이 있다. `initalValue`는 단순히 처음 시작하는 시퀀스 번호를 결정하는 것이고, `allocationSize`가 중요하다.
+
+`allocationSize`는 50으로 설정되어있는데, 시퀀스에 접근할 때마다 50개의 여유번호를 할당받는다고 보면 된다. 만약, `1`이라는 시퀀스를 할당받으면, 메모리 내에 `1~50` 까지의 번호를 저장해두었다가 활용하는 방식이다. 아래 코드로 예를 들어보자.
+
+```java
+//initalValue : 1, allocation : 50
+em.persist(new Member()); //시퀀스 읽어옴 : 1 (메모리에 1~50까지 할당)
+em.persist(new Member()); // 메모리에서 읽어와 id값 2로 할당
+em.persist(new Member()); // 메모리에서 읽어와 id값 3으로 할당
+```
+
+멀티 쓰레드 환경에서 `allocationSize`가 잘 동작할까? 다행이도 잘 동작한다. 그 이유는 여러 서버에서 DB의 시퀀스를 읽어와도 자신만의 시퀀스 공간 `(1~50)` `(51~100)`, `(101~150)` 을 할당받아 사용하기 때문이다. 하지만 `allocationSize`가 클 경우, 시퀀스 번호 사이사이에 구멍이 크게 생길 수도 있다.
+
+<br><hr>
+
+## 데이터 중심의 설계
+
+![테이블](../images/테이블.png)
+
+이 테이블을 객체로 그대로 나타낼 경우, 객체 그래프탐색을 못하게 된다.
+
+데이터 중점으로 설계된 `Order` 엔티티에서 `Member`를 조회한다고 가정해보자.
+
+```java
+Order order = em.find(Order.class, orderId);
+Long memberId = order.getMemberId();
+Member member = em.find(Member.class, memberId);
+```
+
+객체지향스럽지 못하다. 만약 `Order` 객체가 `Member` 객체를 포함하고 있다면 어땠을까?
+
+```java
+Member member = em.find(Order.class, OrderId).getMember();
+```
+
+이렇게 한 줄로 표현할 수 있었을 것이다. 다음 챕터에서는 이런 연관 관계 매핑에 대해서 알아보자.
