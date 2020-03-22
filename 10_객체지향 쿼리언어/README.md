@@ -60,7 +60,6 @@ List<Member> list = query.selectFrom(m)
                     .fecth();
 ```
 
-
 ### Native SQL
 
 JPA가 제공하는 SQL을 직접 작성하는 기능이다. JPQL로 해결할 수 없는 특정 데이터베이스에 의존적인 기능을 사용해야 할 때 사용한다. 하지만 이 마저도 `JdbcTemplate`을 사용하는게 더 나아보인다.
@@ -91,7 +90,7 @@ List<Member> resultList = em.createNativeQuery(sql, Member.class)
 
 - JPQL은 객체 지향 쿼리 언어로, 테이블이 아닌 엔티티를 대상으로 쿼리한다.
 - JPQL은 SQL을 추상화해서 특정데이터베이스에 의존하지 않는다.
-- JPQL은 결국 SQL로 변환된다. 
+- JPQL은 결국 SQL로 변환된다.
 
 ### JPQL 문법
 
@@ -161,7 +160,7 @@ em.createQuery("select m from Member m where m.username=?1", Member.class)
 
 <br>
 
-### 프로젝션 
+### 프로젝션
 
 프로젝션이란 select 절에 조회할 대상을 지정하는 것을 말한다. 프로젝션의 대상으로는 `엔티티`, `임베디드 타입`, `스칼라 타입`이 올 수 있다.
 
@@ -174,7 +173,7 @@ em.createQuery("select m.team from Member m", Team.class)               (2)
 em.createQuery("select t from Member m join m.team t", Team.class)      (3)
 
 //임베디드 타입 프로젝션
-em.createQuery("select m.address from Member m", Address.class) 
+em.createQuery("select m.address from Member m", Address.class)
 
 //스칼라 타입 프로젝션
 em.createQuery("select distinct m.username, m.age from Member m")
@@ -218,7 +217,7 @@ for(MemberDto member : resultList){
 
 - Object[] 타입으로 조회하는 것보다는 객체를 새로 정의하여 new 명령어를 사용하는 편이 낫다. new 명령어 뒤에는 객체의 생성자를 호출하는 것과 동일하기 때문에 패키지 경로를 작성해야 한다.
 
-- new 명령어를 사용할 때의 단점은 패키지 명을 포함한 전체 클래스를 작성해야 하기 때문에 쿼리의 길이가 길어질 수 있다. 또 다른 단점으로는 생성자를 호출하는 것과 동일하기 때문에 조회하고자 하는 데이터의 순서와 타입이 일치해야 한다. 
+- new 명령어를 사용할 때의 단점은 패키지 명을 포함한 전체 클래스를 작성해야 하기 때문에 쿼리의 길이가 길어질 수 있다. 또 다른 단점으로는 생성자를 호출하는 것과 동일하기 때문에 조회하고자 하는 데이터의 순서와 타입이 일치해야 한다.
 
 - QueryDSL을 이용하면 보다 쉽게 작성이 가능하다고 한다.
 
@@ -369,3 +368,98 @@ String query = "select m from Member m
 
 - 현재 JPQL은 `FROM` 절의 서브 쿼리는 지원하지 않는다. 가능하면 `JOIN`을 이용해서 문제를 해결하거나, 어플리케이션의 비즈니스 로직에서 문제를 처리하는 것이 좋다.
 
+<br>
+
+### JPQL 타입 표현
+
+- 문자 : `'Hello'`, `'She''s'`
+- 숫자 : `10L`, `10D`, `10F`
+- Boolean : `TRUE(true)`, `FALSE(false)`
+- Enum : `jpabook.MemberType.Admin` (패키지명 포함)
+- Entity : `Type(m) = Member` (상속 관계에서만 사용)
+
+<br>
+
+### 조건식 - Case
+
+**Case문 예시**
+
+```sql
+#기본 CASE
+SELECT
+    CASE WHEN m.age <= 10 then '학생요금'
+         WHEN m.age >= 60 then '경로요금'
+         ELSE '일반요금'
+    END
+FROM MEMBER m
+```
+
+```sql
+#단순 CASE
+SELECT
+    CASE t.name
+        WHEN '팀A' THEN '인센티브110%'
+        WHEN '팀B' THEN '인센티브120%'
+        ELSE '인센티브105%'
+    END
+FROM TEAM t
+```
+
+- CASE 문은 위의 상황처럼 분기를 이용할 때 사용한다.
+
+<br>
+
+**coalesce와 nullif**
+
+```java
+//사용자 이름이 없으면, '이름 없는 회원'을 반환한다.
+String query = "select coalesce(m.username, '이름 없는 회원') as username from Member m";
+List<String> result = em.createQuery(query, String.class)
+                        .getResultList();
+
+//사용자 이름이 '관리자'이면 null을 반환하고 나머지는 본인의 이름을 반환한다.
+String query = "select nullif(m.username, '관리자') from Member m";
+List<String> result = em.createQuery(query, String.class)
+                        .getResultList();
+```
+
+- `coalesce`는 하나씩 조회해서 null이 아니면 반환한다.
+- `nullif`는 두 값이 같으면 null을 반환한다. 다르면 첫 번째 값을 반환.
+
+<br>
+
+### JPQL 함수
+
+#### JPQL 기본 함수
+
+- `CONCAT`
+- `SUBSTRING`
+- `TRIM`
+- `LOWER`, `UPPER`
+- `LENGTH`
+- `LOCATE`
+- `ABS`, `SQRT`, `MOD`
+- `SIZE`
+
+#### 사용자 정의 함수
+
+하이버네이트는 사용 전 방언에 추가해야 한다. 사용하는 DB의 방언을 상속받고, 사용자 정의 함수를 등록한다. 마지막으로 생성한 객체를 `persistence.xml`에 등록하면 된다.
+
+```java
+//H2Dialect를 상속받은 객체에 사용하고자 하는 함수를 추가한다.
+public class MyH2Dialect extends H2Dialect{
+    public MyH2Dialect(){
+        registerFunction("group_concat", new StandaradSQLFunction("group_concat", StandardBasicTypes.STRING))
+    }
+}
+
+//새로 생성된 객체 MyH2Dialect를 persistence.xml에 추가한다.
+<property name="hibernate.dialect" value="dialect.MyH2Dialect">
+
+
+//표준 방법으로 사용할 때는 function()을 이용하고, hibernate에서는 등록된 함수를 바로 사용할 수 있도록 도와준다.
+String query = "select function('group_concat', m.username) from Member m";
+String query = "select group_concat(m.username) from Member m";
+List<String> result = em.createQuery(query, String.class)
+                        .getResultList();
+```
