@@ -8,7 +8,7 @@ JPA는 `Java Persistence API`의 줄임말로 자바 진영의 ORM 기술 표준
 
 <br>
 
-![JPA](images/JPA.png)
+![JPA](../images/JPA.png)
 
 사진에서 보는 것처럼 우리는 JPA에게 Entity Object를 넘겨주기만 하면, JPA는 내부적으로 쿼리문을 생성하고 JDBC API를 호출하여 DB에 접근한다. 이 사실도 물론 중요하지만, 더욱이 중요한 사실은 JPA가 `객체`와 `RDB` 사이의 패러다임의 불일치를 해결해준다는 사실이다.
 
@@ -35,7 +35,7 @@ jpa.remove(member) //삭제
 
 ### 유지보수
 
-![유지보수](images/JPA_유지보수.png)
+![유지보수](../images/JPA_유지보수.png)
 
 이미 만들어져있는 Member 객체에 `tel`이라는 변수를 추가해야 한다고 하자. 만약 JDBC API를 사용한다면 보이는 것처럼 `CRUD`를 수정해야한다. 이는 굉장한 노가다에 가깝고, 사람이 직접 타이핑하는 SQL에는 실수가 따르기 마련이다.
 
@@ -47,7 +47,7 @@ jpa.remove(member) //삭제
 
 #### JPA와 상속
 
-![상속](images/JPA_상속.png)
+![상속](../images/JPA_상속.png)
 
 객체지향프로그래밍에는 `상속`이라는 개념이 존재한다. 하지만 `RDBMS`에는 어떨까? 상속이라는 개념이 존재하지 않는다. 그럼, 객체가 상속을 받고있다면 RDB에서는 어떻게 처리해야할까?
 
@@ -133,7 +133,7 @@ transaction.commit(); // [트랜잭션] 커밋
 
 ### 지연 로딩과 즉시 로딩
 
-![지연로딩_즉시로딩](images/지연로딩_즉시로딩.png)
+![지연로딩_즉시로딩](../images/지연로딩_즉시로딩.png)
 
 지연로딩은 `team.getName()`을 호출했을 때 SELECT 쿼리를 전달해 엔티티를 가져오는 방법이고, 즉시 로딩은 member를 가져올 때, member와 관련있는 `team` 엔티티까지 함께 조회하는 방법을 의미한다. JPA는 옵션 하나로 지연 로딩과 즉시 로딩을 조절할 수 있다.
 
