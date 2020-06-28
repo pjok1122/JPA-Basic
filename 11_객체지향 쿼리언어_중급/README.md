@@ -108,7 +108,7 @@ _cf) 하이버네이트에서는 경고 로그를 남기고 메모리에서 페�
 
 **해결 방법**
 
-1. 다대일 관계를 뒤집어서 일대다 관계로 데이터를 가져온다.
+1. 일대다 관계 대신 `다대일 관계`로 데이터를 가져온다.
 
 ```java
 String query = "select m from Member m join fetch m.team";
